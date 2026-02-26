@@ -1,48 +1,141 @@
 <script lang="ts">
-	const categories = ['Breakfast', 'Lunch', 'Dinner', 'Desserts'];
+	import { onMount } from 'svelte';
+	import AddRecipeModal from '$lib/components/AddRecipeModal.svelte';
 
-	const recipes = [
+		const defaultCategories = ['Breakfast', 'Lunch', 'Dinner', 'Desserts'];
+	const fallbackImage =
+		'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80';
+
+	type ApiRecipe = {
+		_id?: string;
+		name: string;
+		description: string;
+		category?: { _id: string; name: string } | string;
+		ingredients?: Array<{ name: string; quantity: string }>;
+		preparationSteps?: string[];
+		imageUrl?: string;
+	};
+
+	type RecipeCard = {
+		id: string;
+		title: string;
+		stats: string;
+		image: string;
+	};
+
+	const demoRecipes: RecipeCard[] = [
 		{
+			id: 'demo-1',
 			title: 'Avocado Toast Bowl',
 			stats: '245 saves · 35 shares',
 			image:
 				'https://images.unsplash.com/photo-1493770348161-369560ae357d?auto=format&fit=crop&w=900&q=80'
 		},
 		{
+			id: 'demo-2',
 			title: 'Lemon Herb Pasta',
 			stats: '182 saves · 24 shares',
 			image:
 				'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=900&q=80'
 		},
 		{
+			id: 'demo-3',
 			title: 'Berry Yogurt Parfait',
 			stats: '323 saves · 41 shares',
 			image:
 				'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=80'
 		},
 		{
+			id: 'demo-4',
 			title: 'Grilled Chicken Salad',
 			stats: '211 saves · 29 shares',
 			image:
 				'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80'
 		},
 		{
+			id: 'demo-5',
 			title: 'Spicy Ramen Bowl',
 			stats: '276 saves · 33 shares',
 			image:
 				'https://images.unsplash.com/photo-1557872943-16a5ac26437e?auto=format&fit=crop&w=900&q=80'
 		},
 		{
+			id: 'demo-6',
 			title: 'Chocolate Pancakes',
 			stats: '398 saves · 58 shares',
 			image:
 				'https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=900&q=80'
 		}
 	];
+
+	let recipes: RecipeCard[] = demoRecipes;
+	let categories: string[] = defaultCategories;
+	let isAddRecipeOpen = false;
+
+	function toRecipeCard(recipe: ApiRecipe): RecipeCard {
+		const ingredientCount = recipe.ingredients?.length ?? 0;
+		const stepCount = recipe.preparationSteps?.length ?? 0;
+		const categoryName =
+			typeof recipe.category === 'object' && recipe.category ? recipe.category.name : 'Uncategorized';
+
+		return {
+			id: recipe._id ?? crypto.randomUUID(),
+			title: recipe.name,
+			stats: `${categoryName} · ${ingredientCount} ingredients · ${stepCount} steps`,
+			image: recipe.imageUrl || fallbackImage
+		};
+	}
+
+	async function loadCategories() {
+		try {
+			const response = await fetch('/api/categories');
+			if (!response.ok) return;
+
+			const data = (await response.json()) as { categories?: Array<{ name: string }> };
+			const names = (data.categories ?? []).map((category) => category.name);
+			if (names.length > 0) {
+				categories = names;
+			}
+		} catch {
+			categories = defaultCategories;
+		}
+	}
+
+	async function loadRecipes() {
+		try {
+			const response = await fetch('/api/recipes');
+			if (!response.ok) return;
+
+			const data = (await response.json()) as { recipes?: ApiRecipe[] };
+			if (!data.recipes || data.recipes.length === 0) return;
+
+			recipes = data.recipes.map(toRecipeCard);
+		} catch {
+			recipes = demoRecipes;
+		}
+	}
+
+	onMount(() => {
+		void loadCategories();
+		void loadRecipes();
+	});
+
+	function openAddRecipeModal() {
+		isAddRecipeOpen = true;
+	}
+
+	function closeAddRecipeModal() {
+		isAddRecipeOpen = false;
+		void loadCategories();
+	}
+	function handleRecipeCreated(event: CustomEvent<ApiRecipe>) {
+		recipes = [toRecipeCard(event.detail), ...recipes];
+		void loadCategories();
+	}
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-cyan-50">
-	<div class="m-2 w-[98vw] max-w-[1900px] space-y-10 rounded-3xl bg-white p-6 shadow-2xl md:space-y-12 md:p-14 lg:w-[97vw] lg:p-16">
+	<div class="m-2 w-[98vw] max-w-475 space-y-10 rounded-3xl bg-white p-6 shadow-2xl md:space-y-12 md:p-14 lg:w-[97vw] lg:p-16">
 		<div
 			class="flex flex-col items-center justify-center space-y-3 md:mb-16 md:flex-row md:justify-end md:space-y-0 md:space-x-8 lg:mb-24"
 		>
@@ -81,6 +174,7 @@
 
 			<button
 				type="button"
+				on:click={openAddRecipeModal}
 				class="rounded-md border border-black bg-black px-14 py-3 text-lg font-normal text-white shadow-2xl duration-200 hover:bg-white hover:text-black"
 			>
 				Add Recipe
@@ -88,7 +182,7 @@
 		</div>
 
 		<div class="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-			{#each recipes as recipe}
+			{#each recipes as recipe (recipe.id)}
 				<div class="group relative">
 					<img src={recipe.image} alt={recipe.title} class="h-56 w-full object-cover" />
 					<div
@@ -118,3 +212,7 @@
 		</div>
 	</div>
 </div>
+
+{#if isAddRecipeOpen}
+	<AddRecipeModal on:close={closeAddRecipeModal} on:created={handleRecipeCreated} />
+{/if}
