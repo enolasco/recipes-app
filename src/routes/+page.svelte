@@ -22,6 +22,7 @@
 		stats: string;
 		image: string;
 		category: string;
+		detailsHref?: string;
 	};
 
 	const demoRecipes: RecipeCard[] = [
@@ -124,7 +125,8 @@
 			title: recipe.name,
 			stats: `${categoryName} · ${ingredientCount} ingredients · ${stepCount} steps`,
 			image: recipe.imageUrl || fallbackImage,
-			category: categoryName
+			category: categoryName,
+			detailsHref: recipe._id ? `/recipes/${toRecipeId(recipe._id)}` : undefined
 		};
 	}
 
@@ -243,31 +245,59 @@
 
 		<div class="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 			{#each filteredRecipes as recipe (recipe.id)}
-				<div class="group relative">
-					<img src={recipe.image} alt={recipe.title} class="h-56 w-full object-cover" />
-					<div
-						class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 p-2 px-4 text-white opacity-0 duration-500 group-hover:opacity-100"
-					>
-						<div class="flex w-full justify-between">
-							<div class="font-normal">
-								<p class="text-sm">{recipe.title}</p>
-								<p class="text-xs">{recipe.stats}</p>
+				{#if recipe.detailsHref}
+					<a href={recipe.detailsHref} class="group relative block">
+						<img src={recipe.image} alt={recipe.title} class="h-56 w-full object-cover" />
+						<div
+							class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 p-2 px-4 text-white opacity-0 duration-500 group-hover:opacity-100"
+						>
+							<div class="flex w-full justify-between">
+								<div class="font-normal">
+									<p class="text-sm">{recipe.title}</p>
+									<p class="text-xs">{recipe.stats}</p>
+								</div>
+								<div class="flex items-center">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.8"
+									>
+										<path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3-6 3V4.5Z"></path>
+									</svg>
+								</div>
 							</div>
-							<div class="flex items-center">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="1.8"
-								>
-									<path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3-6 3V4.5Z"></path>
-								</svg>
+						</div>
+					</a>
+				{:else}
+					<div class="group relative">
+						<img src={recipe.image} alt={recipe.title} class="h-56 w-full object-cover" />
+						<div
+							class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 p-2 px-4 text-white opacity-0 duration-500 group-hover:opacity-100"
+						>
+							<div class="flex w-full justify-between">
+								<div class="font-normal">
+									<p class="text-sm">{recipe.title}</p>
+									<p class="text-xs">{recipe.stats}</p>
+								</div>
+								<div class="flex items-center">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.8"
+									>
+										<path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3-6 3V4.5Z"></path>
+									</svg>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 			{/each}
 		</div>
 	</div>

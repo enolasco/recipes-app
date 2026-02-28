@@ -13,7 +13,7 @@
 		name: string;
 		description: string;
 		category?: { _id: string; name: string } | string;
-		ingredients?: Array<{ name: string; quantity: string }>;
+		ingredients?: Array<{ name: string; quantity: string; optional?: boolean }>;
 		preparationSteps?: string[];
 		imageUrl?: string;
 		servings?: number;
@@ -52,7 +52,11 @@
 	const dispatch = createEventDispatcher<{
 		close: undefined;
 		created: ApiRecipe;
+		updated: ApiRecipe;
 	}>();
+
+	export let mode: 'create' | 'edit' = 'create';
+	export let initialRecipe: ApiRecipe | null = null;
 
 	let isSubmitting = false;
 	let isLoadingCategories = false;
@@ -82,8 +86,61 @@
 	let editingCategoryName = '';
 
 	onMount(() => {
-		void loadCategories();
+		void initializeModal();
 	});
+
+	async function initializeModal() {
+		await loadCategories();
+
+		if (mode === 'edit' && initialRecipe) {
+			sourceUrl = '';
+			importError = '';
+			isImportingFromUrl = false;
+			applyInitialRecipe(initialRecipe);
+		}
+	}
+
+	function resolveCategoryId(recipeCategory: ApiRecipe['category']): string {
+		if (typeof recipeCategory === 'string') {
+			const matchedByName = categories.find(
+				(category) => category.name.toLowerCase() === recipeCategory.toLowerCase()
+			);
+			return matchedByName?._id ?? '';
+		}
+
+		if (recipeCategory && typeof recipeCategory === 'object' && '_id' in recipeCategory) {
+			return recipeCategory._id;
+		}
+
+		return '';
+	}
+
+	function applyInitialRecipe(recipe: ApiRecipe) {
+		name = recipe.name ?? '';
+		description = recipe.description ?? '';
+		imageUrl = recipe.imageUrl ?? '';
+		selectedCategoryId = resolveCategoryId(recipe.category);
+		servings = recipe.servings !== undefined ? String(recipe.servings) : '';
+		prepTimeMinutes = recipe.prepTimeMinutes !== undefined ? String(recipe.prepTimeMinutes) : '';
+		cookTimeMinutes = recipe.cookTimeMinutes !== undefined ? String(recipe.cookTimeMinutes) : '';
+		tips = (recipe.tips ?? []).join('\n');
+		tags = (recipe.tags ?? []).join(', ');
+		isAlcoholic = recipe.isAlcoholic ?? false;
+
+		ingredients =
+			recipe.ingredients && recipe.ingredients.length > 0
+				? recipe.ingredients.map((ingredient) => ({
+						name: ingredient.name ?? '',
+						quantity: ingredient.quantity ?? '',
+						optional: ingredient.optional ?? false
+					}))
+				: [{ name: '', quantity: '', optional: false }];
+
+		preparationSteps =
+			recipe.preparationSteps && recipe.preparationSteps.length > 0
+				? [...recipe.preparationSteps]
+				: [''];
+	}
 
 	async function loadCategories() {
 		isLoadingCategories = true;
@@ -660,6 +717,12 @@
 		event.preventDefault();
 		formError = '';
 
+		if (mode === 'edit' && !initialRecipe?._id) {
+			formError = 'Unable to edit this recipe.';
+			revealFormError();
+			return;
+		}
+
 		const normalizedName = name.trim();
 		const normalizedDescription = description.trim();
 		const normalizedIngredients = ingredients
@@ -725,8 +788,11 @@
 		isSubmitting = true;
 
 		try {
-			const response = await fetch('/api/recipes', {
-				method: 'POST',
+			const endpoint = mode === 'edit' ? `/api/recipes/${initialRecipe?._id}` : '/api/recipes';
+			const method = mode === 'edit' ? 'PUT' : 'POST';
+
+			const response = await fetch(endpoint, {
+				method,
 				headers: {
 					'Content-Type': 'application/json'
 				},
@@ -748,14 +814,17 @@
 
 			if (!response.ok) {
 				const data = (await response.json().catch(() => ({}))) as { error?: string };
-				formError = data.error ?? 'Failed to create recipe.';
+				formError =
+					data.error ?? (mode === 'edit' ? 'Failed to update recipe.' : 'Failed to create recipe.');
 				revealFormError();
 				return;
 			}
 
 			const data = (await response.json()) as { recipe: ApiRecipe };
-			dispatch('created', data.recipe);
-			resetForm();
+			dispatch(mode === 'edit' ? 'updated' : 'created', data.recipe);
+			if (mode === 'create') {
+				resetForm();
+			}
 			closeModal();
 		} catch {
 			formError = 'Could not connect to server.';
@@ -776,7 +845,7 @@
 >
 	<div class="mx-auto max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 sm:p-6">
 		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-lg font-semibold sm:text-xl">Add Recipe</h2>
+				<h2 class="text-lg font-semibold sm:text-xl">{mode === 'edit' ? 'Edit Recipe' : 'Add Recipe'}</h2>
 			<button
 				type="button"
 				on:click={closeModal}
@@ -788,29 +857,31 @@
 		</div>
 
 		<form class="space-y-5" novalidate on:submit={submitRecipe}>
-			<div class="space-y-2 rounded-md border border-gray-200 p-3">
-				<label for="sourceUrl" class="block text-sm font-medium">Import from URL</label>
-				<div class="flex flex-col gap-2 sm:flex-row">
-					<input
-						id="sourceUrl"
-						type="url"
-						bind:value={sourceUrl}
-						placeholder="https://example.com/recipe"
-						class="w-full rounded-md border-gray-300 text-sm"
-					/>
-					<button
-						type="button"
-						on:click={importRecipeFromUrl}
-						disabled={isImportingFromUrl}
-						class="rounded-md border border-black px-3 py-2 text-sm disabled:opacity-60"
-					>
-						{isImportingFromUrl ? 'Importing...' : 'Import'}
-					</button>
+			{#if mode === 'create'}
+				<div class="space-y-2 rounded-md border border-gray-200 p-3">
+					<label for="sourceUrl" class="block text-sm font-medium">Import from URL</label>
+					<div class="flex flex-col gap-2 sm:flex-row">
+						<input
+							id="sourceUrl"
+							type="url"
+							bind:value={sourceUrl}
+							placeholder="https://example.com/recipe"
+							class="w-full rounded-md border-gray-300 text-sm"
+						/>
+						<button
+							type="button"
+							on:click={importRecipeFromUrl}
+							disabled={isImportingFromUrl}
+							class="rounded-md border border-black px-3 py-2 text-sm disabled:opacity-60"
+						>
+							{isImportingFromUrl ? 'Importing...' : 'Import'}
+						</button>
+					</div>
+					{#if importError}
+						<p class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{importError}</p>
+					{/if}
 				</div>
-				{#if importError}
-					<p class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{importError}</p>
-				{/if}
-			</div>
+			{/if}
 
 			<div class="space-y-4">
 				<div>
@@ -1121,7 +1192,7 @@
 					disabled={isSubmitting}
 					class="rounded-md border border-black bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
 				>
-					{isSubmitting ? 'Saving...' : 'Save Recipe'}
+					{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Update Recipe' : 'Save Recipe'}
 				</button>
 			</div>
 		</form>
