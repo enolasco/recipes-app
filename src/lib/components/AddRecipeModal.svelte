@@ -843,9 +843,9 @@
 	tabindex="0"
 	aria-label="Close add recipe modal"
 >
-	<div class="mx-auto max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 sm:p-6">
-		<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold sm:text-xl">{mode === 'edit' ? 'Edit Recipe' : 'Add Recipe'}</h2>
+	<div class="mx-auto flex max-h-[95vh] w-full max-w-2xl flex-col overflow-y-auto rounded-2xl bg-white">
+		<div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-4 sm:px-6 sm:py-6">
+			<h2 class="text-lg font-semibold sm:text-xl">{mode === 'edit' ? 'Edit Recipe' : 'Add Recipe'}</h2>
 			<button
 				type="button"
 				on:click={closeModal}
@@ -856,7 +856,7 @@
 			</button>
 		</div>
 
-		<form class="space-y-5" novalidate on:submit={submitRecipe}>
+		<form id="recipe-form" class="space-y-5 px-4 py-4 pb-24 sm:px-6 sm:py-6 sm:pb-28" novalidate on:submit={submitRecipe}>
 			{#if mode === 'create'}
 				<div class="space-y-2 rounded-md border border-gray-200 p-3">
 					<label for="sourceUrl" class="block text-sm font-medium">Import from URL</label>
@@ -1178,23 +1178,24 @@
 					{formError}
 				</p>
 			{/if}
-
-			<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-				<button
-					type="button"
-					on:click={closeModal}
-					class="rounded-md border border-gray-300 px-4 py-2 text-sm"
-				>
-					Cancel
-				</button>
-				<button
-					type="submit"
-					disabled={isSubmitting}
-					class="rounded-md border border-black bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
-				>
-					{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Update Recipe' : 'Save Recipe'}
-				</button>
-			</div>
 		</form>
+
+		<div class="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-gray-200 bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-6 sm:py-6">
+			<button
+				type="button"
+				on:click={closeModal}
+				class="rounded-md border border-gray-300 px-4 py-2 text-sm"
+			>
+				Cancel
+			</button>
+			<button
+				type="submit"
+				form="recipe-form"
+				disabled={isSubmitting}
+				class="rounded-md border border-black bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+			>
+				{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Update Recipe' : 'Save Recipe'}
+			</button>
+		</div>
 	</div>
 </div>
