@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AddRecipeModal from '$lib/components/AddRecipeModal.svelte';
+	import { toastStore } from '$lib/stores/toastStore';
 
 		const defaultCategories = ['Breakfast', 'Lunch', 'Dinner', 'Desserts'];
 	const fallbackImage =
@@ -187,6 +188,7 @@
 	function handleRecipeCreated(event: CustomEvent<ApiRecipe>) {
 		const createdRecipe = toRecipeCard(event.detail);
 		recipes = [createdRecipe, ...recipes.filter((recipe) => recipe.id !== createdRecipe.id)];
+		toastStore.success(`Recipe "${createdRecipe.title}" created successfully.`);
 		void loadCategories();
 		void loadRecipes();
 	}

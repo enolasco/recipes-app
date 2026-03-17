@@ -72,3 +72,22 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'Failed to update recipe' }, { status: 500 });
 	}
 };
+
+export const DELETE: RequestHandler = async ({ params }) => {
+	try {
+		await connectToDatabase();
+
+		if (!isValidObjectId(params.id)) {
+			return json({ error: 'Recipe not found.' }, { status: 404 });
+		}
+
+		const recipe = await RecipeModel.findByIdAndDelete(params.id);
+		if (!recipe) {
+			return json({ error: 'Recipe not found.' }, { status: 404 });
+		}
+
+		return json({ success: true });
+	} catch {
+		return json({ error: 'Failed to delete recipe' }, { status: 500 });
+	}
+};
