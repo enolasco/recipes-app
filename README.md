@@ -72,6 +72,53 @@ await connectToDatabase();
 const recipes = await RecipeModel.find();
 ```
 
+## Database providers (MongoDB + SQLite)
+
+This app supports two database providers selected by environment variable:
+
+```sh
+DB_PROVIDER=mongo
+```
+
+or
+
+```sh
+DB_PROVIDER=sqlite
+```
+
+### MongoDB provider
+
+Defaults:
+
+```sh
+MONGODB_URI=mongodb://127.0.0.1:27017
+MONGODB_DB=recipes
+```
+
+### SQLite provider (Drizzle + better-sqlite3)
+
+Default SQLite file path:
+
+```sh
+SQLITE_DB_PATH=./data/recipes.sqlite
+```
+
+When `DB_PROVIDER=sqlite`, tables are created automatically on startup.
+
+### Example `.env`
+
+```sh
+# switch between mongo and sqlite
+DB_PROVIDER=sqlite
+
+# sqlite file location (used when DB_PROVIDER=sqlite)
+SQLITE_DB_PATH=./data/recipes.sqlite
+
+# mongo settings (used when DB_PROVIDER=mongo)
+MONGODB_URI=mongodb://127.0.0.1:27017
+MONGODB_DB=recipes
+```
+
 ### Minimal API route
 
 - `GET /api/recipes` returns all recipes (newest first)
