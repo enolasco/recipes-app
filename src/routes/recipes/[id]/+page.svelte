@@ -206,12 +206,13 @@
 				? recipe.category
 				: 'Uncategorized';
 	$: imageUrl = recipe.imageUrl?.trim() ? recipe.imageUrl : fallbackImage;
-	$: baseServings =
+	$: hasExplicitServings =
 		typeof recipe.servings === 'number' && Number.isFinite(recipe.servings) && recipe.servings > 0
-			? recipe.servings
-			: undefined;
-	$: scaledServings = baseServings !== undefined ? Math.max(0, Math.round(baseServings * multiplier * 100) / 100) : undefined;
-	$: targetServingsValue = scaledServings !== undefined ? String(scaledServings) : '';
+			? true
+			: false;
+	$: baseServings = hasExplicitServings ? (recipe.servings as number) : 1;
+	$: scaledServings = Math.max(0, Math.round(baseServings * multiplier * 100) / 100);
+	$: targetServingsValue = String(scaledServings);
 	$: scaledIngredients = (recipe.ingredients ?? []).map((ingredient) => ({
 		...ingredient,
 		scaledQuantity: scaleNumericText(ingredient.quantity, multiplier),
@@ -234,8 +235,6 @@
 	}
 
 	function applyTargetServings(event: Event) {
-		if (baseServings === undefined) return;
-
 		const input = event.currentTarget as HTMLInputElement;
 		const nextTarget = Number(input.value);
 
@@ -254,6 +253,33 @@
 	}
 
 	function parseNumericToken(token: string): number | null {
+		const normalizedToken = token.trim();
+		const unicodeFractions: Record<string, number> = {
+			'¼': 1 / 4,
+			'½': 1 / 2,
+			'¾': 3 / 4,
+			'⅓': 1 / 3,
+			'⅔': 2 / 3,
+			'⅛': 1 / 8,
+			'⅜': 3 / 8,
+			'⅝': 5 / 8,
+			'⅞': 7 / 8
+		};
+
+		if (normalizedToken in unicodeFractions) {
+			return unicodeFractions[normalizedToken];
+		}
+
+		const mixedUnicodeFractionMatch = normalizedToken.match(/^(\d+)([¼½¾⅓⅔⅛⅜⅝⅞])$/);
+		if (mixedUnicodeFractionMatch) {
+			const whole = Number(mixedUnicodeFractionMatch[1]);
+			const fraction = unicodeFractions[mixedUnicodeFractionMatch[2]];
+			if (!Number.isFinite(whole) || fraction === undefined) {
+				return null;
+			}
+			return whole + fraction;
+		}
+
 		const mixedFractionMatch = token.match(/^(\d+)\s+(\d+)\/(\d+)$/);
 		if (mixedFractionMatch) {
 			const whole = Number(mixedFractionMatch[1]);
@@ -291,7 +317,7 @@
 		if (!normalized || factor === 1) return text;
 
 		const replaced = normalized.replace(
-			/(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)/g,
+			/(\d+\s+\d+\/\d+|\d+[¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+(?:\.\d+)?)/g,
 			(token) => {
 				const parsed = parseNumericToken(token);
 				if (parsed === null) return token;
@@ -422,50 +448,46 @@
 						</div>
 					</div>
 					<p class="text-sm text-gray-700">
-						Base: {recipe.servings !== undefined ? recipe.servings : '—'} · Adjusted: {scaledServings !== undefined
-							? scaledServings
-							: '—'}
+						Base: {baseServings}{hasExplicitServings ? '' : ' (default)'} · Adjusted: {scaledServings}
 					</p>
-					{#if baseServings !== undefined}
-						<div class="mt-3 space-y-3">
-							<div class="flex flex-wrap items-center gap-2">
-								<label for="target-servings" class="text-xs font-medium text-gray-600">Target servings</label>
-								<input
-									id="target-servings"
-									type="number"
-									min="0.1"
-									step="0.1"
-									value={targetServingsValue}
-									on:change={applyTargetServings}
-									class="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm"
-								/>
+					<div class="mt-3 space-y-3">
+						<div class="flex flex-wrap items-center gap-2">
+							<label for="target-servings" class="text-xs font-medium text-gray-600">Target servings</label>
+							<input
+								id="target-servings"
+								type="number"
+								min="0.1"
+								step="0.1"
+								value={targetServingsValue}
+								on:change={applyTargetServings}
+								class="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm"
+							/>
+							<button
+								type="button"
+								on:click={resetServingScale}
+								class="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+							>
+								Reset
+							</button>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="text-xs font-medium text-gray-600">Quick scale</span>
+							{#each multiplierPresets as preset}
 								<button
 									type="button"
-									on:click={resetServingScale}
-									class="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+									on:click={() => setMultiplier(preset)}
+									class="rounded-md border px-2 py-1 text-xs"
+									class:border-black={multiplier === preset}
+									class:bg-black={multiplier === preset}
+									class:text-white={multiplier === preset}
+									class:border-gray-300={multiplier !== preset}
+									class:hover:bg-gray-50={multiplier !== preset}
 								>
-									Reset
+									x{preset}
 								</button>
-							</div>
-							<div class="flex flex-wrap items-center gap-2">
-								<span class="text-xs font-medium text-gray-600">Quick scale</span>
-								{#each multiplierPresets as preset}
-									<button
-										type="button"
-										on:click={() => setMultiplier(preset)}
-										class="rounded-md border px-2 py-1 text-xs"
-										class:border-black={multiplier === preset}
-										class:bg-black={multiplier === preset}
-										class:text-white={multiplier === preset}
-										class:border-gray-300={multiplier !== preset}
-										class:hover:bg-gray-50={multiplier !== preset}
-									>
-										x{preset}
-									</button>
-								{/each}
-							</div>
+							{/each}
 						</div>
-					{/if}
+					</div>
 				</div>
 			</div>
 

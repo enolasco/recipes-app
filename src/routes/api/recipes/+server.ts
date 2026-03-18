@@ -1,17 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-import { connectToDatabase } from '$lib/server/db/mongoose';
-import { CategoryModel } from '$lib/server/models/category';
-import { RecipeModel } from '$lib/server/models/recipe';
+import { getDataProvider } from '$lib/server/data/provider';
+import { mapDataErrorToHttp } from '$lib/server/data/httpErrors';
 
 export const GET: RequestHandler = async () => {
 	try {
-		await connectToDatabase();
-		const recipes = await RecipeModel.find()
-			.populate('category', 'name')
-			.sort({ createdAt: -1 })
-			.lean();
+		const provider = getDataProvider();
+		const recipes = await provider.listRecipes();
 
 		return json({ recipes });
 	} catch {
@@ -21,27 +17,13 @@ export const GET: RequestHandler = async () => {
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		await connectToDatabase();
+		const provider = getDataProvider();
 		const payload = await request.json();
-
-		if (!payload.category) {
-			return json({ error: 'Category is required.' }, { status: 400 });
-		}
-
-		const category = await CategoryModel.findById(payload.category);
-		if (!category) {
-			return json({ error: 'Invalid category.' }, { status: 400 });
-		}
-
-		const recipe = await RecipeModel.create(payload);
-		await recipe.populate('category', 'name');
+		const recipe = await provider.createRecipe(payload);
 
 		return json({ recipe }, { status: 201 });
 	} catch (error) {
-		if (error instanceof Error && error.name === 'ValidationError') {
-			return json({ error: error.message }, { status: 400 });
-		}
-
-		return json({ error: 'Failed to create recipe' }, { status: 500 });
+		const mapped = mapDataErrorToHttp(error, 'Failed to create recipe');
+		return json({ error: mapped.error }, { status: mapped.status });
 	}
 };
